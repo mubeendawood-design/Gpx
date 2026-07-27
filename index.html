@@ -131,6 +131,7 @@ nav.actions{display:flex;gap:8px;padding:10px 12px calc(10px + env(safe-area-ins
     <div id="grpLive" style="display:none">
       <h2>Riding together</h2>
       <div id="grpCode"></div>
+      <button class="btn primary" id="grpShare">📤 Share invite</button>
       <div id="grpHint">Share this code — riders appear on everyone's map</div>
       <div id="grpRiders"></div>
       <button class="btn danger" id="grpLeave">Leave ride</button>
@@ -535,6 +536,28 @@ function enterRide(code,name,isNew){
   toast(isNew?'Ride created — share code '+code:'Joined ride '+code+' ✓');
   vibrate([80,60,80]);
 }
+
+document.getElementById('grpShare').addEventListener('click',async()=>{
+  if(!ride)return;
+  const url='https://mubeendawood-design.github.io/Gpx/?ride='+ride.code;
+  const text='Join my ride on Beacon Ride Navigator \ud83d\udeb4\nCode: '+ride.code+'\n'+url;
+  if(navigator.share){
+    try{await navigator.share({title:'Beacon Ride',text:text,url:url})}catch(e){}
+  }else{
+    try{await navigator.clipboard.writeText(text);toast('Invite copied — paste into WhatsApp')}
+    catch(e){toast('Code: '+ride.code+' — copy it manually')}
+  }
+});
+// Arriving via a shared invite link (?ride=CODE)
+(function(){
+  const c=new URLSearchParams(location.search).get('ride');
+  if(c&&c.length===4){
+    document.getElementById('grpCodeIn').value=c.toUpperCase();
+    grpView(false);
+    grpModal.style.display='flex';
+    toast('Invite received — enter your name and tap Join');
+  }
+})();
 
 document.getElementById('grpLeave').addEventListener('click',()=>{
   if(meRef)meRef.remove();
