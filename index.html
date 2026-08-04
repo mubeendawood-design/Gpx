@@ -111,7 +111,7 @@ nav.actions{display:flex;gap:8px;padding:10px 12px calc(10px + env(safe-area-ins
     <div id="posMarker"></div>
   </div>
   <nav class="actions">
-    <label class="btn" id="gpxLabel">Load GPX<input type="file" id="gpxInput" accept=".gpx,application/gpx+xml,application/octet-stream"></label>
+    <button class="btn" id="btnRoutes">Load GPX</button>
     <button class="btn" id="btnFollow">▶ Start ride</button>
     <button class="btn" id="btnGmaps">Maps</button>
     <button class="btn" id="btnZwift">⚡</button>
@@ -119,9 +119,8 @@ nav.actions{display:flex;gap:8px;padding:10px 12px calc(10px + env(safe-area-ins
   </nav>
   <div id="toast"></div>
   <div id="startNav"><span id="startNavDist"></span> to the start point<small>Tap to navigate there with Google Maps</small></div>
-  <div id="noRouteChip" style="position:absolute;left:12px;right:12px;bottom:120px;background:var(--slate);border:1px solid var(--hivis);color:var(--mist);padding:12px 14px;border-radius:10px;font-size:13px;z-index:2100;box-shadow:0 4px 14px rgba(0,0,0,.4)">
-    <div style="text-align:center;margin-bottom:2px">Tap 📂 to load a GPX route</div>
-    <div id="savedRoutes"></div>
+  <div id="noRouteChip" style="position:absolute;left:50%;transform:translateX(-50%);bottom:120px;background:var(--slate);border:1px solid var(--hivis);color:var(--mist);padding:10px 16px;border-radius:10px;font-size:13px;z-index:2100;box-shadow:0 4px 14px rgba(0,0,0,.4);white-space:nowrap">
+    Tap <b style="color:var(--hivis)">Load GPX</b> to pick a route
   </div>
   <div id="resumeBanner">Ride in progress — <b id="resumeDist">–</b> ridden before this screen closed.
     <div class="row"><button class="btn primary" id="resumeGo" style="background:var(--hivis);color:var(--moss)">Resume ride</button><button class="btn" id="resumeDiscard" style="background:var(--moss);color:var(--stone)">Discard</button></div>
@@ -136,6 +135,14 @@ nav.actions{display:flex;gap:8px;padding:10px 12px calc(10px + env(safe-area-ins
     <div class="row"><span>Route covered</span><b id="smCov">–</b></div>
     <button class="btn" id="smClose">Close</button>
   </div></div>
+  <div id="routeModal" style="position:fixed;inset:0;background:rgba(14,21,18,.9);z-index:4000;display:none;align-items:center;justify-content:center;padding:24px">
+    <div class="card" style="background:var(--slate);border:1px solid #45564e;border-radius:14px;padding:22px;width:100%;max-width:340px;color:var(--mist)">
+      <h2 style="font-size:15px;color:var(--hivis);letter-spacing:.05em;text-transform:uppercase;margin-bottom:10px">Routes</h2>
+      <div id="savedRoutes" style="max-height:45vh;overflow-y:auto"></div>
+      <label class="btn" id="gpxLabel" style="display:block;text-align:center;margin-top:14px;background:var(--hivis);color:var(--moss)">📂 Load new GPX…<input type="file" id="gpxInput" accept=".gpx,application/gpx+xml,application/octet-stream"></label>
+      <button class="btn" id="routeCancel" style="width:100%;margin-top:8px;background:var(--moss);color:var(--mist);border:1px solid #45564e">Cancel</button>
+    </div>
+  </div>
   <div id="grpModal"><div class="card">
     <div id="grpMenu">
       <h2>Group ride</h2>
@@ -502,6 +509,7 @@ document.getElementById('gpxInput').addEventListener('change',e=>{
       HIGH_LABEL='High point';
       saveToLib(ROUTE_NAME,PTS);
       buildRoute(true);
+      routeModal.style.display='none';
       toast('Loaded: '+ROUTE_NAME);
     }catch(err){
       toast('Couldn\'t read that file — is it a valid GPX export?');
@@ -796,13 +804,19 @@ function loadFromLib(name){
 function renderLib(){
   const el=document.getElementById('savedRoutes');
   const lib=getLib();
-  if(!lib.length){el.innerHTML='';return}
-  el.innerHTML='<div style="margin-top:8px;font-size:11px;letter-spacing:.05em;color:#8fa3;text-transform:uppercase;color:var(--mist);opacity:.7">Your routes</div>'+
-    lib.map(r=>'<a href="#" class="libRoute" data-n="'+r.name.replace(/"/g,'&quot;')+'" style="display:block;color:var(--hivis);font-weight:700;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.08)">'+r.name+'</a>').join('');
+  if(!lib.length){el.innerHTML='<div style="opacity:.7;font-size:13px">No saved routes yet — load a GPX and it\'ll appear here.</div>';return}
+  el.innerHTML=lib.map(r=>'<a href="#" class="libRoute" data-n="'+r.name.replace(/"/g,'&quot;')+'" style="display:block;color:var(--hivis);font-weight:700;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.08);font-size:14px">'+r.name+'</a>').join('');
   el.querySelectorAll('.libRoute').forEach(a=>a.addEventListener('click',e=>{
     e.preventDefault();loadFromLib(a.dataset.n);
+    document.getElementById('routeModal').style.display='none';
   }));
 }
+const routeModal=document.getElementById('routeModal');
+document.getElementById('btnRoutes').addEventListener('click',()=>{
+  renderLib();
+  routeModal.style.display='flex';
+});
+document.getElementById('routeCancel').addEventListener('click',()=>routeModal.style.display='none');
 
 // --- Startup: clean map on your location; load a route when you're ready ---
 map.setView([53.79,-2.70],11);
