@@ -116,6 +116,7 @@ nav.actions{display:flex;gap:8px;padding:10px 12px calc(10px + env(safe-area-ins
     <button class="btn" id="btnGmaps">Maps</button>
     <button class="btn" id="btnZwift">⚡</button>
     <button class="btn" id="btnGroup">👥</button>
+    <button class="btn" id="btnHist">📋</button>
   </nav>
   <div id="toast"></div>
   <div id="startNav"><span id="startNavDist"></span> to the start point<small>Tap to navigate there with Google Maps</small></div>
@@ -133,6 +134,7 @@ nav.actions{display:flex;gap:8px;padding:10px 12px calc(10px + env(safe-area-ins
     <div class="row"><span>Time</span><b id="smTime">–</b></div>
     <div class="row"><span>Average speed</span><b id="smAvg">–</b></div>
     <div class="row"><span>Route covered</span><b id="smCov">–</b></div>
+    <div id="smPB" style="display:none;margin-top:10px;text-align:center;color:var(--hivis);font-weight:800">🏆 New personal best time on this route!</div>
     <button class="btn" id="smClose">Close</button>
   </div></div>
   <div id="routeModal" style="position:fixed;inset:0;background:rgba(14,21,18,.9);z-index:4000;display:none;align-items:center;justify-content:center;padding:24px">
@@ -141,6 +143,13 @@ nav.actions{display:flex;gap:8px;padding:10px 12px calc(10px + env(safe-area-ins
       <div id="savedRoutes" style="max-height:45vh;overflow-y:auto"></div>
       <label class="btn" id="gpxLabel" style="display:block;text-align:center;margin-top:14px;background:var(--hivis);color:var(--moss)">📂 Load new GPX…<input type="file" id="gpxInput" accept=".gpx,application/gpx+xml,application/octet-stream"></label>
       <button class="btn" id="routeCancel" style="width:100%;margin-top:8px;background:var(--moss);color:var(--mist);border:1px solid #45564e">Cancel</button>
+    </div>
+  </div>
+  <div id="histModal" style="position:fixed;inset:0;background:rgba(14,21,18,.9);z-index:4000;display:none;align-items:center;justify-content:center;padding:24px">
+    <div class="card" style="background:var(--slate);border:1px solid #45564e;border-radius:14px;padding:22px;width:100%;max-width:340px;color:var(--mist)">
+      <h2 style="font-size:15px;color:var(--hivis);letter-spacing:.05em;text-transform:uppercase;margin-bottom:10px">My rides</h2>
+      <div id="histList" style="max-height:55vh;overflow-y:auto"></div>
+      <button class="btn" id="histClose" style="width:100%;margin-top:14px;background:var(--moss);color:var(--mist);border:1px solid #45564e">Close</button>
     </div>
   </div>
   <div id="grpModal"><div class="card">
@@ -372,6 +381,8 @@ function stopFollowing(showSummary){
     document.getElementById('smTime').textContent=fmtTime(elapsed);
     document.getElementById('smAvg').textContent=(ridden/1000/(elapsed/3600)).toFixed(1)+' km/h';
     document.getElementById('smCov').textContent=Math.min(100,Math.round(cum[maxIdx]/totalDist*100))+'%';
+    const pb=logRide({date:Date.now(),route:routeLoaded?ROUTE_NAME:'Free ride',dist:ridden,secs:elapsed,cov:routeLoaded?Math.min(100,Math.round(cum[maxIdx]/totalDist*100)):null});
+    document.getElementById('smPB').style.display=pb?'block':'none';
     document.getElementById('summary').style.display='flex';
   }
   rideStart=0;ridden=0;lastFix=null;maxIdx=0;
@@ -817,6 +828,39 @@ document.getElementById('btnRoutes').addEventListener('click',()=>{
   routeModal.style.display='flex';
 });
 document.getElementById('routeCancel').addEventListener('click',()=>routeModal.style.display='none');
+
+
+// --- Ride log: every completed ride saved on-device; PB = fastest full (>=90%) ride per route ---
+const LOG_KEY='brRideLog';
+function getLog(){try{return JSON.parse(localStorage.getItem(LOG_KEY))||[]}catch(e){return[]}}
+function logRide(r){
+  let log=getLog();
+  const prev=log.filter(x=>x.route===r.route&&(x.cov===null||x.cov>=90));
+  const isPB=r.cov!==null&&r.cov>=90&&(!prev.length||r.secs<Math.min(...prev.map(x=>x.secs)));
+  r.pb=isPB;
+  log.unshift(r);
+  if(log.length>200)log=log.slice(0,200);
+  try{localStorage.setItem(LOG_KEY,JSON.stringify(log))}catch(e){}
+  return isPB;
+}
+function fmtDate(ms){
+  const d=new Date(ms);
+  return d.toLocaleDateString(undefined,{day:'numeric',month:'short'})+' '+d.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'});
+}
+const histModal=document.getElementById('histModal');
+function renderLog(){
+  const el=document.getElementById('histList');
+  const log=getLog();
+  if(!log.length){el.innerHTML='<div style="opacity:.7;font-size:13px">No rides yet — finish a ride and it\'ll be saved here.</div>';return}
+  el.innerHTML=log.map(r=>
+    '<div style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,.08)">'+
+    '<div style="font-weight:700;color:var(--hivis);font-size:14px">'+(r.pb?'🏆 ':'')+r.route+'</div>'+
+    '<div style="font-size:12px;opacity:.8;margin-top:2px">'+fmtDate(r.date)+'</div>'+
+    '<div style="font-size:13px;margin-top:3px">'+(r.dist/1000).toFixed(1)+' km · '+fmtTime(r.secs)+' · '+(r.dist/1000/(r.secs/3600)).toFixed(1)+' km/h'+(r.cov!==null?' · '+r.cov+'%':'')+'</div>'+
+    '</div>').join('');
+}
+document.getElementById('btnHist').addEventListener('click',()=>{renderLog();histModal.style.display='flex'});
+document.getElementById('histClose').addEventListener('click',()=>histModal.style.display='none');
 
 // --- Startup: clean map on your location; load a route when you're ready ---
 map.setView([53.79,-2.70],11);
